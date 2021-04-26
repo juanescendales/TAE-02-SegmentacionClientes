@@ -1,0 +1,354 @@
+---
+title: "TAE - Trabajo 2 - Segmentacion de clientes"
+author: '----'
+date: "23/4/2021"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(ggplot2)
+library(ggcorrplot)
+library(GGally)
+library(plotly)
+library(readr)
+library(patchwork)
+library(fmsb)
+library(knitr)
+```
+
+# Segmentacion de clientes
+
+**Objetivo**: Segmentar de manera optima los clientes segun sus caracteristicas y preferencias de consumo.
+
+## Materiales y métodos
+
+### Materiales
+Se analizaron 1239 usuarios qiip para los cuales se contaba con sus respuestas al test de bienestar financiero y la consulta a su historial crediticio desde qiip al 24 de enero de 2021.
+
+Con respecto al test de bienstar financiero se extrajeron las siguientes variables:
+
+
+*  Máx. de score_qiip
+*  Máx. de estado_actual
+*  Máx. de acompanamiento
+*  Máx. de conciencia
+*  Máx. de planeacion
+*  Máx. de proteccion
+*  Máx. de relacion_con_el_dinero
+*  Máx. de soluciones
+
+En este análisis no se consideran las respuestas individuuales a cada pregunta del test de bienestar, sino las agregaciones anteriores. 
+
+Con respecto a la información de buró, solo se incluye el puntaje actual al momento de la consulta. Esta variable se denomina "Máx. de score". Para efectos de los gráficos, los usuarios con un score de buró igual a cero se representarán como tal, pero para el cálculo de las correlaciones se interpretarán como valores faltantes. Esto debido a que un score de buró igual a cero indica que el Buró de Crédito no tiene la suficiente información para calcular un puntaje. El puntaje de buró 
+
+```{r}
+# Lectura de los datos:
+bdclientes <- read_delim("base_trabajo_segmentacion.csv", ';')
+```
+
+### Métodos
+
+1. Análisis descriptivo: se obtendrán las medidas de tendencia central y de dispersión de las variables mencionadas y las correlaciones por pares.
+
+2. Agrupamiento de los usuarios de acuerdo al test de bienestar: se usará el algoritmo de *K-Means* para agrupar a los usuarios de acuerdo a las respuestas del test de bienestar financiero. Se seleccionarán un número de grupos, $K$, de manera que estos sean interpretables y manejables. Se describirán los grupos en términos de sus medias y desviaciones estándares respecto a las preguntas del test de bienestar
+
+3. Análisis del score de buró en cada grupo obtenido: se estudiará el comportamiento entre las respuestas del test de bienestar financiero y el score de buró al interior de cada grupo.
+
+## Resultados
+
+### Análisis descriptivo
+
+A continuación se presentan los valores mínimos, el valor del primer cuartil, la mediana, la media, el tercer cuartil, el máximo y el número de valores faltantes (NAs) de cada variable considerada:
+
+```{r}
+kable(summary(buroplustest[,-c(1:3,13)]), caption = "Primer cuartil (1st Qu), la mediana, la media, el tercer cuartil (3rd Qu), el máximo y el número de valores faltantes (NAs) de cada variable considerada")
+```
+
+A continuación se presenta la desviación estándar de cada variable considerada:
+
+```{r}
+kable(t(apply(buroplustest[,-c(1:3,13)],2,sd,na.rm=TRUE)),align = "l",digits=2, caption = "Desviaciones estándar de las variables consideradas")
+```
+
+
+
+### El score de buró vs el score qiip
+
+La siguiente figura muestra el score de buró (eje $y$) vs el score de qiip (eje $x$):
+
+```{r buro_vs_bienestar}
+g1 <- ggplot(buroplustest,aes(x=`Máx. de score_qiip`,y=`Máx. de score`))
+g1 + geom_point() + theme_bw() + labs(title = "Score de buró vs Score qiip",
+                                      x = "Score qiip",
+                                      y = "Score de buró")
+```
+
+
+
+```{r}
+# Cálculo de la correlación entre ambos scores (buró vs qiip)
+x <- buroplustest$`Máx. de score_qiip`
+y <- buroplustest$`Máx. de score`
+cor_buro_qiip <- cor(x,y,use = "na.or.complete")
+```
+
+
+La correlación entre el score de buró y el score qiip es de `r sprintf("%0.2f%%",cor_buro_qiip*100)`. Tanto la gráfica como el valor de correlación muestran que la asociación enntre ambas variables sobre toda la población es débil. Sin embargo, no se puede aún concluir que dicha asociación no exista, ya que puede estar enmascarada por otras variables de comportamiento o demográficas, no incluidas en este análisis.
+
+<!-- ```{r} -->
+<!-- plot(x,y,xlab="Score qiip",ylab="Score de buró",las=1) -->
+<!-- title(main="Score qiip vs Score de buró") -->
+<!-- grid() -->
+<!-- ``` -->
+
+
+La siguiente figura presenta la matriz de correlaciones entre las variables consideras en este análisis. La magnitud de las correlaciones se representa por el tamaña del círculo y la dirección por el color, como lo muestra la barra adyacente a la matriz:
+
+```{r}
+# Cálculo de la matriz de correlaciones
+cor_mat <- cor(buroplustest[,-c(1:3,13)],use = "na.or.complete")
+# Visualización de la matriz de correlaciones:
+ggcorrplot(cor_mat,method = "circle")
+```
+
+En esta gráfica se aprecia que:
+* El score de buró no está fuertemente correlacionado con las preguntas del test de bienestar financiero.
+* Las preguntas del test de bienestar están altamente correlacionadas entre sí, con excepción de aquellas relacionadas con la relación con el dinero.
+
+
+<!-- ```{r} -->
+<!-- plot_pairs <- ggpairs(buroplustest[,-c(1:3,13)]) -->
+<!-- ggplotly(plot_pairs) -->
+<!-- ``` -->
+
+
+
+
+La siguiente gráfica muestra las relaciones por pares entre las preguntas del test de bienestar financiero:
+
+
+```{r}
+# Se crea un conjunto de datos exclusivamente con las preguntas del test de bienestar y el score qiip:
+datos_test <- subset(buroplustest,select = c('Máx. de score_qiip','Máx. de estado_actual','Máx. de acompanamiento','Máx. de conciencia','Máx. de planeacion','Máx. de proteccion','Máx. de relacion_con_el_dinero','Máx. de soluciones'))
+
+# Ahora se cambian los nombres de las variables por unos más informativos:
+names(datos_test) <- c('score_qiip','estado_actual','acompanamiento','conciencia','planeacion','proteccion','relacion_con_el_dinero','soluciones')
+# head(datos_test)
+```
+
+
+```{r}
+# Gráfico de dispersión por pares con líneas de tendencias y correlaciones:
+panel.cor <- function(x, y, digits = 2, prefix = "", cex.cor, ...)
+{
+    usr <- par("usr"); on.exit(par(usr))
+    par(usr = c(0, 1, 0, 1))
+    r <- abs(cor(x, y, use = "na.or.complete"))
+    txt <- format(c(r, 0.123456789), digits = digits)[1]
+    txt <- paste0(prefix, txt)
+    if(missing(cex.cor)) cex.cor <- 0.8/strwidth(txt)
+    text(0.5, 0.5, txt, cex = cex.cor * r)
+}
+panel.hist <- function(x, ...)
+{
+    usr <- par("usr"); on.exit(par(usr))
+    par(usr = c(usr[1:2], 0, 1.5) )
+    h <- hist(x, plot = FALSE)
+    breaks <- h$breaks; nB <- length(breaks)
+    y <- h$counts; y <- y/max(y)
+    rect(breaks[-nB], 0, breaks[-1], y, col = "cyan", ...)
+}
+pairs(datos_test,lower.panel = panel.smooth, upper.panel = panel.cor,gap=0, row1attop=FALSE)
+```
+
+
+### Agrupamiento de los usuarios según el test de bienestar financiero
+
+En este apartado se lleva acabo el agrupamiento con diferentes números de grupos. 
+
+La técnica seleccionada fue K-Means. Los resultados del test de bienestar financiero en cada dimensión, tienen la ventaja de estar en la misma escala, por lo que no se requiere un paso de escalamiento de los datos. 
+
+Se probaron diferentes números de centroides, $K$, desde 2 hasta 10. Esto con el objetivo de entender el poder discriminante de los grupo con un número reducido de los mismos. Para cada valor de $K$ se permitieron tres inicializaciones aleatorias de los centroides.
+
+
+
+```{r}
+# Procesamiento de los datos para el agrupamiento:
+irow <- complete.cases(datos_test) # Se eliminan los casos incompletos
+datos_test_complete <- datos_test[irow,-1] # se extrae la primera columna por ser un resumen de las otras
+```
+
+
+
+```{r}
+set.seed(3) # Se fija la semilla para obtener resultados reproducibles
+# Cálculo de los grupos
+centers <- 2:10 # este es el valor de K
+resultados <- vector(mode="list",length = 9) # en esta lista se almacenan los resultados de cada agrupamiento
+for (i in 1:length(centers)){
+  resultados[[i]] <- kmeans(x=datos_test_complete,centers=centers[i],nstart = 3)
+}
+```
+
+
+Para ilustrar el efecto del número de centroides se propone graficar los grupos usando solo dos dimensiones del test de bienestar financiero: la relación con el dinero y el estado actual.
+
+La siguiente figura presenta los resultados obtenidos con $K=2,3,4,5$ grupos.
+
+
+```{r}
+# Extracción de la etiqueta del grupo para cada observación en función del 
+# número de grupos K:
+grupos <- do.call("rbind",lapply(resultados,"[[",1))
+grupos <- as.data.frame(t(grupos))
+names(grupos) <- paste0("K",2:10)
+datos_ilustracion_cl <- cbind(
+  subset(datos_test_complete,select = c("estado_actual","relacion_con_el_dinero")),
+  grupos
+)
+```
+
+```{r}
+grph_iulstr_cl_k <- ggplot(datos_ilustracion_cl,aes(x=estado_actual,y=relacion_con_el_dinero))
+g1 <- grph_iulstr_cl_k + geom_point(aes(colour = factor(K2))) + theme_bw() + labs(title = "K=2",
+                                      x = "Estado actual",
+                                      y = "Relación con el dinero",colour="Grupo")
+g2 <- grph_iulstr_cl_k + geom_point(aes(colour = factor(K3))) + theme_bw() + labs(title = "K=3",
+                                      x = "Estado actual",
+                                      y = "Relación con el dinero",colour="Grupo")
+g3 <- grph_iulstr_cl_k + geom_point(aes(colour = factor(K4))) + theme_bw() + labs(title = "K=4",
+                                      x = "Estado actual",
+                                      y = "Relación con el dinero",colour="Grupo")
+g4 <- grph_iulstr_cl_k + geom_point(aes(colour = factor(K5))) + theme_bw() + labs(title = "K=5",
+                                      x = "Estado actual",
+                                      y = "Relación con el dinero",colour="Grupo")
+```
+
+```{r}
+(g1 | g2)/
+(g3 | g4)
+```
+
+
+Se puede observar en la figura anterior, que para diferentes valores de $K$ hay  consistencia en que hay al menos dos grupos bien formados: 1) el grupo de los usuarios con un puntaje bajo para el estado actual y la relacion con el dinero y 2) el grupo de usuarios que tiene altos puntajes para ambas variables.
+
+Para determinar cuántos grupos conviene tomar se utiliza una métrica que mide la diferencia entre los centroides de los grupos. Mientras más alejados estén mejor. Esta métrica se calcula para los distintos valores de $K$ y se presenta en una gráfica denominada "diagrama de codos".
+
+A continuación se presenta el "diagrama de codos" del resultado de los agrupamientos con distinto número de centros:
+
+```{r}
+# Extracción de la métrica de desempeño ("withinss") para cada K:
+metrica_cl <- do.call("rbind",lapply(resultados,"[[",5))
+num_centros <- 2:10
+res_num_cen <- data.frame(num_centros,metrica_cl)
+grph_metrica_cl <- ggplot(res_num_cen,aes(x=num_centros,xend=num_centros,y=0,yend=metrica_cl))
+grph_metrica_cl + geom_point(aes(x=num_centros,y=metrica_cl)) +  geom_segment() + theme_bw() + labs(title = "Desempeño del agrupamiento \n en función de K",
+                                      x = "K (cantidad de centros)",
+                                      y = "Métrica de desempeño")
+```
+
+La gráfica anterior muestra que cuando se pasa de cuatro a cinco grupos la ganancia en la disminución de la métrica es mucho menor a la obtenida cuando se pasa de tres a cuatro grupos. Por lo tanto, buscando mantener el número más bajo de grupos con el mayor nivel de discriminación, se decide tener cuatro grupos.
+
+Ahora se presentan las medias y las desviaciones estándar de cada grupo:
+
+```{r}
+grupo <- grupos$K4
+cl_medias <- aggregate(.~grupo,data=datos_test_complete,FUN=mean)
+cl_sd <- aggregate(.~grupo,data=datos_test_complete,FUN=sd)
+```
+
+```{r}
+kable(cl_medias,digits=2,caption = "Medias")
+```
+
+```{r}
+kable(cl_sd,digits = 2, caption = "Desviaciones estándar")
+```
+### Descripción de los grupos
+A continuación se describen los cuatro grupos encontrados por el algoritmo de K-means. Antes debe notarse la similitud entre los grupos 3 y 4.
+
+* Grupo 1: estos usuarios tienen bajos puntajes en todas las dimensiones. Un nombre para describirlos podría ser usuarios con alto estrés financiero.
+
+* Grupo 2: estos usuarios tienen puntuaciones medias en casi todas las dimensiones, excepto en la dimensión de soluciones. Podrían describirse como los que tienen un estrés financiero moderado y un bajo conocimiento  de productos financieros.
+
+* Grupo 3: como los usuarios del grupo 2, estos tienen un nivel de estrés financiero moderado. Sin embargo, tienen un alto conocimiento de productos financieros.
+
+* Grupo 4: estos usuarios tienen puntajes altos en la mayoría de las dimensiones. Su puntaje de la relacion con el dinero es medio y con soluciones es alto. Estos usuarios podrían denominarse individuos con bajo estrés financiero y con altos conocimientos en finanzas.
+
+
+
+### ¿Cómo se ven estos grupos?
+
+A continuación se utiliza un gráfico de radar para representar los grupos usando sus valores medios en cada una de las dimensiones del test del bienestar financiero. Adicionalmente, se presentan el porcentaje de individuos en la muestra que caen en cada grupo y el valor promedio del score de buró de cada grupo. Para calcular el score de buró promedio se excluyen los individuos con un score igual a cero.
+
+```{r}
+# nombres <- c("Control de finanzas actuales" , "Control de finanzas futuras" , "Protección contra choques financieros" , "Inversiones" , "Cubro lo básico")
+
+grupos_qiip <- cl_medias[,-1] # datos con los promedios de cada grupo en cada dimensión del test de bienestar
+grupos_qiip <- rbind(100,0,grupos_qiip) # al dataframe anterior se le pone una fila con 100 y otra con 0, que representan el máximo y el mínimo valor que puede tomar cada variable
+
+## Creación de las leyendas.
+#  Se construyen de forma paramétrica:
+textos <- c("G1 - ", "G2 - ", "G3 - ", "G4 - ")
+#  Cálculo de la proporción de usuarios en cada grupo:
+porc_par_g <- proportions(table(grupo))
+#  Se formatea esta proporción como porcentaje usando sprintf: 
+tt <- sprintf("%0.1f%%", porc_par_g*100)
+#  Se extrae el valor del score de buró para los individuos agrupados:
+score_buro <- buroplustest$`Máx. de score`[irow]
+#  Se convierten los 0s en NAs:
+score_buro_na <- ifelse(score_buro==0,NA,score_buro)
+#  Se calcula el score de buró promedio para cada grupo excluyendo NAs:
+score_buro_avg <- aggregate(score_buro_na~grupo, FUN=mean, na.rm=TRUE)
+#  Se formatea el valor promedio del score de buró sin decimales
+score_buro_avg_tx <- round(score_buro_avg$score_buro,digits = 0)
+#  Creación de las leyendas:
+#  Leyenda 1: porcentajes de usuarios en cada grupo
+leyendas1 <- apply(cbind(textos,tt),1,paste0,collapse="")
+#  Leyenda 2: score de buró promedio en cada grupo
+leyendas2 <- apply(cbind(textos,"Score buró: ",score_buro_avg_tx),1,paste0,collapse="")
+
+# Gráfico de radar
+par(mar=c(0,0,2,0),bg = 'white')
+radarchart(grupos_qiip,title = "Grupos en qiip",vlcex=1,cglwd=1,plwd=3,plty=1)
+# Leyendas del gráfico de radar
+legend("topleft",lty=1,lwd=3,col=1:4,legend = leyendas1,bty="n")
+legend("bottomleft",lty=1,lwd=3,col=1:4,legend = leyendas2,bty="n")
+```
+
+Ahora se presenta el boxplot del score de buró para cada grupo:
+
+```{r}
+dd <- cbind(datos_ilustracion_cl,score_buro_na)
+```
+
+```{r}
+grph_bxp <- ggplot(dd,aes(y=score_buro_na,colour = factor(K4)))
+grph_bxp + geom_boxplot(aes(group=factor(K4)),orientation="x") + theme_bw() + labs(title = "Boxplot del score de buró para cada grupo",
+                                      x = "",
+                                      y = "Score de buró",colour="Grupo") + 
+  theme(axis.ticks.x = element_blank(),
+        axis.text.x = element_blank())
+```
+
+La figura anterior muestra que las diferencias entre los score de buró de los cuatro grupos no son significativas. Si bien los valores medianos de los grupos (la linea del medio de cada caja) están alineados con lo que intuitivamente se espera, no pareciera que el grupo fuera un factor determinante para predecir el score de buró.
+
+## Conclusiones
+El test de bienestar financiero permite identificar grupos de usuarios caracterizados por distintos niveles de estrés financiero y de conocimiento de soluciones.
+
+Aunque las medianas del score de buró de los grupos están alineadas con lo que la intuición podría indicar, estos grupos no explican el score de buró.
+
+Este último hecho puede deberse a que no se estén controlando variables como la edad, el sexo y el nivel de ingresos. Para explorar la relación entre el score de buró y el test de bienestar financiero se recomienda llevar a cabo nuevos análisis incluyendo nuevas variables.
+
+<br>
+<br>
+<br>
+
+
+
+
+
+
+
