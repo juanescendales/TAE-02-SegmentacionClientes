@@ -1,0 +1,311 @@
+---
+title: "Segmentacion"
+author: "Daniel Escobar David"
+date: "1/5/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = F,message = F,warning = F)
+```
+
+```{r}
+rm(list=ls())
+library(ggplot2)
+library(gridExtra)
+library(viridis)
+library(tidyr)
+```
+
+
+```{r}
+datos <- read.csv2("./base_trabajo_segmentacion - base_trabajo_segmentacion.csv")
+```
+
+# Analisis exploratorio de datos
+
+Para mejor manipulacion de los datos, dividimos la base en dos parte: *datos_comp* contiene las variables de comportamiento de los clientes en canales y productos, y *datos_fin* contiene las variables de estados financieros y caracteristicas de los clientes.
+
+```{r}
+datos_comp <- datos[,c(2:31)]
+datos_fin <- datos[,c(32:47)]
+```
+
+# Variables de comportamiento de los clientes en canales y productos
+
+## Entrada y salida del valor medio anual
+
+```{r}
+en_vm <- data.frame(apply(datos_comp[,c(grep("en_vm",names(datos_comp)))],2,as.numeric))
+sal_vm <- data.frame(apply(datos_comp[,c(grep("sal_vm",names(datos_comp)))],2,as.numeric))
+```
+
+Un acercamiento inicial para observar como es el comportamiento de los datos de entrada y salida del valor medio anual, es observar los cuantiales en todos los canales en los cuales se prensenta la información.
+
+```{r}
+t(apply(en_vm,2,quantile))
+t(apply(sal_vm,2,quantile))
+```
+
+Podemos observar que en los canales de entrada como el *4,7,10 y otros* se acumula una buena parte de la información  en $0$, además de que en general en todos los canales se presentan valores muy altos de los datos. En general la varianza es muy alta en los canales.  De lo anterior se puede pensar que los canales en los cuales se acumula gran parte de la información alrededor del $0$ son canales o bien porque son muy exclusivos (en terminos de precios, productos o accecibilidad), o que simplemente no sean del uso frecuente de los clientes.
+
+Por otro lado, los canales de salida como el *8 y otros* tambien presentan un cumulo considerable de la información en $0$, asi mismo en todos los demás canales se encuentran valores muy altos de los datos.En general la varianza es muy alta en los canales. Similarmente, como en los canales de entrada, se puede pensar que en los canales de salida en los cuales se acumula gran parte de la información alrededor del $0$  es porque estos canales son bien sean de uso exclusivo o de poco poco frecuente de los clientes.
+
+Inicialmente se piensa en la transformación $Ln(x)$ para realizar una mejor visualización de los datos, sin embargo, como existen valoress iguales a $0$ se prefiere utilizar la tranformación $Ln(x+1)$.
+
+```{r}
+colors <- c("Canal 1" = "blue", "Canal 2" = "red", "Canal 3" = "green",
+            "Canal 4" = "orange", "Canal 5" = "brown", "Canal 6" = "grey",
+            "Canal 7" = "black", "Canal 8" = "pink", "Canal 9" = "darkmagenta",
+            "Canal 10" = "navy", "Otros" = "purple")
+ ggplot(en_vm+1)+
+  stat_density(aes(x=log(en_vm_canal1),col="Canal 1"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_vm_canal2),col="Canal 2"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_vm_canal3),col="Canal 3"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_vm_canal4),col="Canal 4"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_vm_canal5),col="Canal 5"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_vm_canal6),col="Canal 6"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_vm_canal7),col="Canal 7"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_vm_canal8),col="Canal 8"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_vm_canal9),col="Canal 9"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_vm_canal10),col="Canal 10"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_vm_otros),col="Otros"),bins = 100,lwd=1,geom="line")+
+  labs(title="Densidades Del Log Valor Medio Anual Canales (Entrada)",x = "Log Valor Medio Anual (Entrada)",
+         y = "Densidad",
+         color = "Canales") +
+    scale_color_manual(values = colors)
+
+
+```
+
+En el grafico anterior se puede observar como es la densidad de todos los canales respecto a la tranformación del valor media anual en los canales de entrada. Se observa como en todos los canales se encuentra que existen valores de $0$ o en otras palabras, de no uso por algunos clientes, sin embargo, existen clientes que en general hacen uso de todos los canales de entradas que ofrece la empresa, siendo este uso considerablente caro ya que se puede observar una parte considerable de la densidad contenia en valores altos respecto a la transformación.
+
+```{r}
+colors <- c("Canal 5" = "blue", "Canal 2" = "red", "Canal 8" = "green",
+            "Otros" = "orange")
+
+ggplot(sal_vm+1)+
+  stat_density(aes(x=log(sal_vm_canal5),col="Canal 5"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(sal_vm_canal2),col="Canal 2"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(sal_vm_canal8),col="Canal 8"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(sal_vm_otros),col="Otros"),bins = 100,lwd=1,geom="line")+
+  labs(title="Densidades Del Log Valor Medio Anual Canales (Salida)",x = "Log Valor Medio Anual (Salida)",
+         y = "Densidad",
+         color = "Canales") +
+    scale_color_manual(values = colors)
+```
+
+En el grafico anterior se puede observar como es la densidad de todos los canales respecto a la tranformación del valor media anual en los canales de salida. Se observa como en todos los canales se encuentra que existen valores de $0$ o en otras palabras, de no uso por algunos clientes, sin embargo, existen clientes que en general hacen uso de todos los canales de entradas que ofrece la empresa, sin embargo, hay canales en los cuales se encuentran valores más altos que en otros respecto a la trandformacion, siendo el canal 2 y el canal 8 en lo cuales se encuntran más de estos valores altos.
+
+## Entrada y salida de las transacciones mensuales promedio
+
+```{r}
+en_tx <- data.frame(apply(datos_comp[,c(grep("en_tx",names(datos_comp)))],2,as.numeric))
+sal_tx <- data.frame(apply(datos_comp[,c(grep("sal_tx",names(datos_comp)))],2,as.numeric))
+```
+
+```{r}
+t(apply(en_tx,2,quantile))
+t(apply(sal_tx,2,quantile))
+```
+
+Tanto en las las transacciones de entrada como en las de salida, parece que no presentan valores tan altos como los que se presentaban en el valor medio anual.
+
+Por otro lado en las transacciones de entrada, se observan comportamientos similares como en los del valor medios anual, como lo es el cumulo de gran parte de la información alrededor de $0$ en canales como el *4,7,10 y otros*. En general la varianza es muy alta en los canales. Igualmente se piensa que esto pueda ser porque estos canales son bien sean exclusivos o de poco uso por los clientes.
+
+Las transacciones de salida, comparte el comportamiento de que existe una parte considerable de informacion contenida alrededor del $0$ en canales como el *8 y otros*. No se presentan valores excesivamente grandes y en general la varianza es muy alta en los canales. Similarmente se piensa que esto pueda ser porque estos canales son bien sean exclusivos o de poco uso por los clientes.
+
+Se aplica la tranformación $Ln(x+1)$ para realizar una mejor visualización de la información.
+
+```{r}
+colors <- c("Canal 1" = "blue", "Canal 2" = "red", "Canal 3" = "green",
+            "Canal 4" = "orange", "Canal 5" = "brown", "Canal 6" = "grey",
+            "Canal 7" = "black", "Canal 8" = "pink", "Canal 9" = "darkmagenta",
+            "Canal 10" = "navy", "Otros" = "purple")
+ggplot(en_tx+1)+
+  stat_density(aes(x=log(en_tx_canal1),col="Canal 1"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_tx_canal2),col="Canal 2"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_tx_canal3),col="Canal 3"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_tx_canal4),col="Canal 4"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_tx_canal5),col="Canal 5"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_tx_canal6),col="Canal 6"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_tx_canal7),col="Canal 7"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_tx_canal8),col="Canal 8"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_tx_canal9),col="Canal 9"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_tx_canal10),col="Canal 10"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(en_tx_otros),col="Otros"),bins = 100,lwd=1,geom="line")+
+  labs(title="Densidades Del Log Transacciones Mensuales Promedio Canales (Entrada)",x = "Log Transacciones Mensuales Promedio (Entrada)",
+         y = "Densidad",
+         color = "Canales") +
+    scale_color_manual(values = colors)
+```
+En el grafico anterior se puede observar como es la densidad de todos los canales respecto a la tranformación de las transacciones mensuales promedio en los canales de entrada. Se observa como en todos los canales se encuentra que existen valores de $0$ o en otras palabras, de no uso por algunos clientes, sin embargo, en la mayoria de los canales se pueden encontrar valores altos medidos y que un pequeña parte de estos se concentra en valores no muy altos de los observados.
+
+```{r}
+
+colors <- c("Canal 5" = "blue", "Canal 2" = "red", "Canal 8" = "green",
+            "Otros" = "orange")
+
+ggplot(sal_tx+1)+
+  stat_density(aes(x=log(sal_tx_canal5),col="Canal 5"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(sal_tx_canal2),col="Canal 2"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(sal_tx_canal8),col="Canal 8"),bins = 100,lwd=1,geom="line")+
+  stat_density(aes(x=log(sal_tx_otros),col="Otros"),bins = 100,lwd=1,geom="line")+
+  labs(title="Densidades Del Log Transacciones Mensuales Promedio Canales (Salida)",x = "Log  Transacciones Mensuales Promedio (Salida)",
+         y = "Densidad",
+         color = "Canales") +
+    scale_color_manual(values = colors)
+
+```
+En el grafico anterior se puede observar como es la densidad de todos los canales respecto a la tranformación de las transacciones mensuales promedio en los canales de entrada. Se observa como en todos los canales se encuentra que existen valores de $0$ o en otras palabras, de no uso por algunos clientes, sin embargo, hay canales en los que se observan que hay valores medidos muy altos respectos los demas, estos son el canal 2 y otros, los canales 5 y 8 no presentan valores muy altos, y se concentran más en valores medidos pequeños.
+
+# Variables de estados financieros y características de los clientes
+
+```{r}
+datos_fin <- data.frame(apply(datos_fin, 2, as.numeric))
+```
+Inicialmente se observa un resumen de los estadisticos descriptivos para las varibles que se pueden considerar como continuas y para las variables categoricas ordinales realizamos una tabla para observar las frecuencias en dichas categorias.
+
+```{r}
+summary(datos_fin[,c(6,7,10,11)])
+
+apply(datos_fin[,-c(6,7,10,11)],2,table)
+```
+ En general en la variables continuas se puede observar que el rango de valores esta entre 0 y 1, y las variables categoricas ordinales tienen observaciones en todas las categorias definidas, varias de estas variables tienen 3 o más categorias y solo dos de estas son dicotomas.
+ 
+ Los graficos que se presentan a continuación, ayudan a tener una mejor comprensión de lo que pasa con cada varaible.
+ 
+```{r}
+colors <- c("pagos_pj" = "blue", "pagos_pn" = "red", "recaudos_pj" = "green",
+            "recaudos_pn" = "orange")
+
+ggplot(datos_fin[,c(6,7,10,11)])+
+  stat_density(aes(x=pagos_pj,col="pagos_pj"),lwd=1,geom="line")+
+  stat_density(aes(x=pagos_pn,col="pagos_pn"),lwd=1,geom="line")+
+  stat_density(aes(x=recaudos_pj,col="recaudos_pj"),lwd=1,geom="line")+
+  stat_density(aes(x=recaudos_pn,col="recaudos_pn"),lwd=1,geom="line")+
+  labs(title="Densidades De Variables Continuas",x = "Quantiles",
+         y = "Densidad",
+         color = "Leyenda") +
+    scale_color_manual(values = colors)
+```
+ En el grafico anterior podemos observar como las variables *pagos_pj, pagos_pn, recaudo_pj y recaudos_pn* abarcan ampliamente valores entre 0 y 1, teniendo en cuenta que buena parte de la información en las variables *recaudos* se concentra en $0$.
+ 
+
+```{r}
+vars_cat_6 <- datos_fin[,c("cxp","cxc","totalinventory","rotacion_inventarios","ciclo_negocio","ciclo_financiero")]
+a <- apply(vars_cat_6, 2, table)
+
+vars_cat_5 <- datos_fin[,c("impo_cv")]
+b <- data.frame(table(vars_cat_5))
+b <- data.frame("impo_cv"=b[,2])
+
+vars_cat_4 <-datos_fin[,c("rotacion_cxc","rotacion_cxp")]
+c <- apply(vars_cat_4, 2, table)
+
+vars_cat_3 <-datos_fin[,c("expo_vt")]
+d <- data.frame(table(vars_cat_3))
+d <- data.frame("expo_vt"=d[,2])
+
+vars_cat_2 <- datos_fin[,c("tiene_ventas_fisicas","tiene_ventas_electronicas")]
+e <- apply(vars_cat_2, 2, table)
+```
+
+ 
+
+```{r}
+# Funcion para hacer graficos de barras
+
+plot_bars <- function(data){
+  test=data.frame(data)
+  cat <- row.names(data)
+  if(dim(test)[2]==1){
+    test <- gather(test,key="Variables",value="Conteos")
+    test <- cbind(test,"Categorias"=as.character(cat))
+  }else{
+    test <- gather(test,key="Variables",value="Conteos")
+    test <- cbind(test,"Categorias"=as.character(rep(cat,length(cat))))
+    }
+ggplot(test,aes(x=Variables,y=Conteos,fill=Categorias))+
+  geom_bar(position="dodge", stat="identity")+ 
+  scale_fill_manual(values=my.palette)+
+geom_text(position = position_dodge2(width = 0.9, preserve = "single"),aes(label=Conteos),vjust=0.25, hjust=0, angle=90)+ylim(0,max(test$Conteos)+200)+
+  labs(title =paste("Variables con", length(cat) ,"categorias") )
+}
+
+```
+
+```{r}
+plot_bars(data=e)
+```
+
+Para las variables con dos categorias se puede observar que para la variable *tiene_ventas_electronicas* predomina mucho más la categoria $0$ (No) sobre otra, lo cual es una caracteristica importante ya que los clientes que tiene dicha empresa, la mayoria de estos no presentar ventas electronicas. Por otro lado la variable *tiene_ventas_fisicas* presenta un equilibrio entre las categorias, esto puede decir que los clientes de la empresa pueden tener medios de venta distintos a los medidos por la empresa.
+
+```{r}
+plot_bars(data=d)
+
+```
+
+
+Para el caso de la variable *expo_vt* que tiene 3 categorias (ordinales), se puede apreciar que la variable en la que se encuentran mayor cantidad de clientes en en la categoria 2, seguido de la 1 y finalmente la 3. De lo anterior podemos suguerir que la mayoria de clientes pueden tener un nivel bajo e intermedio en exportaciones lo cual pueda ser una medida de que tan grande pueda ser el cliente (empresa) en terminos empresariales.  
+
+
+```{r}
+plot_bars(data=c)
+```
+
+Para las variables *rotacion_cxc* y *rotacion_cxp* que tienen 4 categorias, la primera en general presenta cierto grado de uniformidad en la cantidad de información que hay en cada categoria, dando la idea de que los clientes pueden ser indiferentes al momento de escoger la cantidad de dias en los que se puedad dar la rotacion de pago. Para la segunta, se aprecia  una gran cantidad de la información contenida en los niveles más bajos, esto puede suguerir que los clientes pueden preferir elegir el menor numero de dias para realizar la rotación de cobro.
+
+```{r}
+plot_bars(data=b)
+```
+
+Para el caso de la variable *impo_cv* que tiene 5 categorias (ordinales), se puede apreciar las categorias en las cuales se concentran más parte de los clientes es en la 1 y en la 2. De lo anterior podemos suguerir que la mayoria de clientes pueden tener un nivel bajo de importaciones lo cual pueda ser una medida de que tan grande pueda ser el cliente (empresa) en terminos empresariales.  
+
+```{r}
+plot_bars(data=a)
+```
+Para las variables que tienen 6 categorias, las 2 variables *ciclo* presentan la gran mayoria de los casos en los niveles más altos, esto puede decir que los ciclos más comunes utilizados por los clientes puedan ser aquellos en los que la cantidad de dias sea la más grande. Las variables *cxc* y *cxp* tiene la mayoria de casos en los niveles más bajos, por lo tanto esto puede suguerir que las cuentas por pagar o cobrar de los clientes sean muy pocas en general. La variable *rotacion_inventario* concentra la gran mayoria de la información en los niveles pequeños, lo cual puede suguerir que lo clientes realicen sus rotaciones de inventario en el menor numero de dias posible. Finalmente para la variable *totalinventory* hay gran parte de de la informacion en los niveles bajos y una cierta cantidad considerable en el nivel mas alto, lo anterior puede ser un indicio de que gran parter de los clientes tengan un bajo valor en los inventarios que manejan, sin embargo se pueden encontrar clientes en los cuales el valor de su inventario sea muy alto.
+
+
+Dado que las variables continuas se encuentran en un rango de valores entre 0 y 1, es prudente estandarizar las variables categoricas ordinales para así tener más variables que se encuentren en un mismo rango y poder realizar aproximaciones más precisas al utilizar algún metodo de segmentación.
+
+Vamos a estandarizar las variables categoricas ordinales:
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 
