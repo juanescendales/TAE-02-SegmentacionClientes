@@ -216,6 +216,8 @@ e <- apply(vars_cat_2, 2, table)
 ```{r}
 # Funcion para hacer graficos de barras
 
+my.palette <- viridis(6, option = "A")[6:1]
+
 plot_bars <- function(data){
   test=data.frame(data)
   cat <- row.names(data)
